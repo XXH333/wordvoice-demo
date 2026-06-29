@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>WordVoice Demo</title>
+  <meta property="og:title" content="WordVoice">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#157878">
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    /* 基础表格和音频播放器样式 */
+    .audio-table th, .audio-table td { padding: 10px; vertical-align: middle; }
+    audio { max-width: 240px; height: 40px; width: 100%; } 
+    .sample-card { background-color: #fafafa; border: 1px solid #eaeaea; padding: 15px 20px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .sample-card p { margin: 8px 0; font-size: 0.95em; line-height: 1.5; }
+    
+    /* WordVoice 专属高亮样式 */
+    .highlight-word { color: #d32f2f; font-weight: bold; text-decoration: underline; }
+    .control-tag { background-color: #e0f2f1; color: #00695c; padding: 2px 8px; border-radius: 6px; font-family: Consolas, monospace; font-size: 0.85em; margin-left: 4px; border: 1px solid #b2dfdb;}
+    
+    /* ================= 多语言切换核心 CSS (强化版) ================= */
+    .lang-zh { display: none !important; }
+    body.zh-active .lang-en { display: none !important; }
+    
+    body.zh-active div.lang-zh, 
+    body.zh-active p.lang-zh, 
+    body.zh-active h1.lang-zh, 
+    body.zh-active h2.lang-zh, 
+    body.zh-active h3.lang-zh,
+    body.zh-active center.lang-zh,
+    body.zh-active figcaption.lang-zh { display: block !important; }
+    
+    body.zh-active span.lang-zh, 
+    body.zh-active strong.lang-zh, 
+    body.zh-active i.lang-zh,
+    body.zh-active a.lang-zh { display: inline !important; }
+    /* ============================================================ */
+
+    /* 悬浮切换按钮样式 */
+    .lang-toggle-btn {
+      position: fixed; top: 20px; right: 20px; background-color: #157878; color: white;
+      border: none; padding: 10px 15px; border-radius: 20px; cursor: pointer;
+      font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      z-index: 9999; transition: background-color 0.3s;
+    }
+    .lang-toggle-btn:hover { background-color: #0e5656; }
+  </style>
+</head>
+<body>
+
+  <!-- 语言切换按钮 -->
+  <button class="lang-toggle-btn" id="lang-btn" onclick="toggleLanguage()">🌐 中文 / EN</button>
+
+  <section class="page-header">
+    <!-- 保留你原本的 CSS header 设定 -->
+  </section>
+
+  <section class="main-content">
+    <h1 id="">
+      <center class="lang-en"> WordVoice: Explicit and Decoupled Multi-Dimensional <br> Word-Level Control for LLM-Based Text-to-Speech </center>
+      <center class="lang-zh"> WordVoice: 基于大语言模型的高精度、多维度字级解耦控制语音合成 </center>
+    </h1>
+    
+    <p class="lang-en" style="text-align: center; color: #666; font-style: italic; font-size: 1.1em; margin-top: -10px;"> Anonymous submission </p>
+    <p class="lang-zh" style="text-align: center; color: #666; font-style: italic; font-size: 1.1em; margin-top: -10px;"> 匿名投稿 </p>
+
+    <br>
+    <center>
+      <a href="#" class="btn lang-en">Code & Dataset (Coming Soon)</a>
+      <a href="#" class="btn lang-zh">代码与数据集 (即将开源)</a>
+    </center>
+    <br>
+
+    <h2 id="abstract">
+      <span class="lang-en">Abstract</span>
+      <span class="lang-zh">摘要</span>
+    </h2>
+    <p class="lang-en" style="text-align: justify; line-height: 1.6;">
+      While recent LLM-based TTS systems have achieved remarkable naturalness, they predominantly rely on implicit end-to-end generation paradigms, resulting in coarse-grained control. To address this, we propose <strong>WordVoice</strong>, a comprehensive solution for highly precise word-level control. First, we construct <strong>WordVoice-5A</strong>, a massive 4.7k-hour bilingual dataset featuring five-dimensional word-level annotations (duration, boundary, energy, pitch, and tone). Second, we pioneer a bound-token mechanism within the LLM to enable adaptive multi-task prosodic planning and flexible manual intervention. Furthermore, we augment the token-to-waveform stage with a fine-grained acoustic modulation module. Experiments demonstrate that WordVoice achieves superior, decoupled control over multiple acoustic dimensions while maintaining competitive zero-shot synthesis stability.
+    </p>
+    <p class="lang-zh" style="text-align: justify; line-height: 1.6;">
+      尽管近期基于大语言模型（LLM）的语音合成系统在自然度上取得了显著进展，但它们主要依赖隐式的端到端生成范式，导致控制粒度较粗。为了解决这一问题，我们提出了 <strong>WordVoice</strong>，一个实现高精度字级控制的综合解决方案。首先，我们构建了 <strong>WordVoice-5A</strong>，这是一个包含 4700 小时双语数据的大规模数据集，具有五个维度的字级标注（时长、边界、能量、音高和音调）。其次，我们在 LLM 中首创了边界符（bound-token）机制，以实现自适应的多任务韵律规划和灵活的人工干预。此外，我们在声学解码阶段引入了细粒度的声学调制模块。实验表明，WordVoice 在实现多声学维度解耦控制的同时，保持了极具竞争力的零样本合成稳定性。
+    </p>
+
+    <hr>
+
+    <a name="architecture">
+      <h2 class="lang-en">1. Model Architecture & Pipeline</h2>
+      <h2 class="lang-zh">1. 模型架构与数据处理流程</h2>
+    </a>
+    <div>
+      <p style="text-align: center"><img src="picture/mot.png" width="600" alt="Motivation"/></p>
+      <figcaption class="lang-en" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>Figure 1: Dual-Mode Synthesis Paradigm.</strong> Users can either rely on the model's autonomous prosodic planning (Free Mode) or explicitly manipulate 5D acoustic attributes for specific words (Control Mode).
+      </figcaption>
+      <figcaption class="lang-zh" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>图 1：双模式合成范式。</strong> 用户可以依赖模型的自主韵律规划（自由模式），也可以显式地操纵特定单词的五维声学属性（控制模式）。
+      </figcaption>
+
+      <p style="text-align: center"><img src="picture/pipeline.png" width="850" alt="Annotation Pipeline"/></p>
+      <figcaption class="lang-en" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>Figure 2: Linguistically-Guided Annotation Pipeline.</strong> Extracting 5D attributes (Duration, Boundary, Energy, Pitch, Tone) with morphological modeling to mitigate coarticulation.
+      </figcaption>
+      <figcaption class="lang-zh" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>图 2：语言学指导的标注流程。</strong> 提取 5D 属性（时长、边界、能量、音高、音调），并结合形态学建模以消除协同发音的干扰。
+      </figcaption>
+
+      <p style="text-align: center"><img src="picture/wordvoice.png" width="850" alt="WordVoice Framework"/></p>
+      <figcaption class="lang-en" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>Figure 3: WordVoice Framework.</strong> (a) WordVoice-LLM via Bound-Token guided control. (b) WordVoice-FM via fine-grained style modulation.
+      </figcaption>
+      <figcaption class="lang-zh" style="text-align:center; font-size: 0.9em; color: #555; line-height: 1.4; margin-bottom: 30px;">
+        <strong>图 3：WordVoice 框架。</strong> (a) 基于边界符引导控制的 WordVoice-LLM。(b) 基于细粒度风格调制的 WordVoice-FM。
+      </figcaption>
+    </div>
+
+    <hr>
+
+    <!-- ==================== SECTION 2 ==================== -->
+    <a name="sec2">
+      <h2 class="lang-en">2. Oracle Prosody Reconstruction (GT Attribute Control)</h2>
+      <h2 class="lang-zh">2. 真实韵律重构 (基于 Ground Truth 属性控制)</h2>
+    </a>
+    <div style="background-color: #f4f8f9; border-left: 5px solid #157878; padding: 15px; margin: 15px 0; border-radius: 4px;">
+      <span class="lang-en" style="line-height: 1.5; display: inline-block;">
+        To demonstrate the upper bound of WordVoice's control precision, we extract the 5D word-level attributes from the <strong>Ground Truth (GT)</strong> audio and feed them into <strong>WordVoice-Control</strong>. We compare this with <strong>CosyVoice3</strong> (Free Generation) to show how explicit attributes help reconstruct the intricate prosody and emotional fluctuations of real human speech.
+      </span>
+      <span class="lang-zh" style="line-height: 1.5; display: inline-block;">
+        为了展示 WordVoice 控制精度的上限，我们从真实音频（Ground Truth）中提取 5D 字级属性，并将其输入到 <strong>WordVoice-Control</strong> 中。我们将其与 <strong>CosyVoice3</strong>（自由合成）进行对比，以展示显式属性如何帮助重构真实人类语音中复杂的韵律和情感波动。
+      </span>
+    </div>
+
+    <!-- S2 - ZH 1 -->
+    <h3><span class="lang-en">Sample 1 (Chinese)</span><span class="lang-zh">示例 1 (中文)</span></h3>
+    <div class="sample-card"><p><strong><span class="lang-en">📝 Text:</span><span class="lang-zh">📝 文本:</span></strong> <i>"确实因为哎呦，我就现在想吐槽这个北京地铁就设计这这个人。"</i></p></div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Ground Truth Audio</span><span class="lang-zh">真实参考音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Free Gen)</span><span class="lang-zh">CosyVoice3 (自由合成)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice (with GT Attrs)</span><span class="lang-zh">WordVoice (使用真实属性)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center;"><audio src="demo/sec2/zh_1_groundtruth.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec2/zh_1_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec2/zh_1_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S2 - ZH 2 -->
+    <h3><span class="lang-en">Sample 2 (Chinese)</span><span class="lang-zh">示例 2 (中文)</span></h3>
+    <div class="sample-card"><p><strong><span class="lang-en">📝 Text:</span><span class="lang-zh">📝 文本:</span></strong> <i>"这是我当时幻想的，我希望我的未来的另一半是浓眉大眼，高鼻梁。第四个呢，第四个。"</i></p></div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Ground Truth Audio</span><span class="lang-zh">真实参考音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Free Gen)</span><span class="lang-zh">CosyVoice3 (自由合成)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice (with GT Attrs)</span><span class="lang-zh">WordVoice (使用真实属性)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/zh_2_groundtruth.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/zh_2_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/zh_2_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S2 - EN 1 -->
+    <h3><span class="lang-en">Sample 3 (English)</span><span class="lang-zh">示例 3 (英文)</span></h3>
+    <div class="sample-card"><p><strong><span class="lang-en">📝 Text:</span><span class="lang-zh">📝 文本:</span></strong> <i>"Spent my twenties going like back and forth between I'm drinking, I'm not drinking, I'm drinking, I'm not drinking. But the not drinking was always."</i></p></div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Ground Truth Audio</span><span class="lang-zh">真实参考音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Free Gen)</span><span class="lang-zh">CosyVoice3 (自由合成)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice (with GT Attrs)</span><span class="lang-zh">WordVoice (使用真实属性)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_1_groundtruth.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_1_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_1_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S2 - EN 2 -->
+    <h3><span class="lang-en">Sample 4 (English)</span><span class="lang-zh">示例 4 (英文)</span></h3>
+    <div class="sample-card"><p><strong><span class="lang-en">📝 Text:</span><span class="lang-zh">📝 文本:</span></strong> <i>"Your beer doesn't taste like mushrooms, but they can help keep your mind and body in good form. So the trend that we're talking about here is adaptogenic or functional mushrooms."</i></p></div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Ground Truth Audio</span><span class="lang-zh">真实参考音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Free Gen)</span><span class="lang-zh">CosyVoice3 (自由合成)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice (with GT Attrs)</span><span class="lang-zh">WordVoice (使用真实属性)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_2_groundtruth.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_2_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec2/en_2_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br><br>
+
+    <hr>
+
+    <!-- ==================== SECTION 3 ==================== -->
+    <a name="sec3">
+      <h2 class="lang-en">3. Zero-Shot Quality & Stability (Free Mode vs. Baseline)</h2>
+      <h2 class="lang-zh">3. 零样本生成质量与稳定性 (自由模式 vs. 基线模型)</h2>
+    </a>
+    <p class="lang-en">
+      The following evaluation data is sourced from the <strong>cv3-eval</strong> dataset. We compare <strong>WordVoice-Free</strong> against the baseline <strong>CosyVoice3</strong>. The results demonstrate that our model achieves zero-shot long-utterance stability that is fully on par with, if not superior to, the baseline, proving that explicit word-level modeling does not compromise general TTS robustness.
+    </p>
+    <p class="lang-zh">
+      以下演示数据来源于 <strong>cv3-eval</strong> 数据集。我们将 <strong>WordVoice-Free</strong> 与基线 <strong>CosyVoice3</strong> 进行了对比。结果表明，我们的模型在 zero-shot 长句生成上，具备完全不输于甚至优于基线的稳定性，证明了显式字级建模不会削弱通用 TTS 的鲁棒性。
+    </p>
+
+    <!-- S3 - ZH 1 -->
+    <h3><span class="lang-en">Sample 1 (Chinese Long Utterance)</span><span class="lang-zh">示例 1 (中文长句)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">📝 Target Text:</span><span class="lang-zh">📝 目标文本:</span></strong> <i>"板凳宽，扁担长，板凳比扁担宽，扁担比板凳长，扁担要绑在板凳上，板凳不让扁担绑在板凳上，扁担偏要板凳让扁担绑在板凳上。"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Prompt Audio</span><span class="lang-zh">提示音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Baseline)</span><span class="lang-zh">CosyVoice3 (基线模型)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice-Free (Ours)</span><span class="lang-zh">WordVoice-Free (我们的)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center;"><audio src="demo/sec3/zh_1_prompt.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec3/zh_1_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec3/zh_1_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S3 - ZH 2 -->
+    <h3><span class="lang-en">Sample 2 (Chinese Long Utterance)</span><span class="lang-zh">示例 2 (中文长句)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">📝 Target Text:</span><span class="lang-zh">📝 目标文本:</span></strong> <i>"吕小绿家养了红鲤鱼绿鲤鱼和驴。李小莉家养了红驴绿驴和鲤鱼。吕小绿家的红鲤鱼绿鲤鱼和驴要跟李小莉家的红驴绿驴和鲤鱼比一比谁更红谁更绿。吕小绿说他家的绿鲤鱼比李小莉家的绿驴绿，李小莉说她家的绿驴比吕小绿家的绿鲤鱼绿。"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Prompt Audio</span><span class="lang-zh">提示音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Baseline)</span><span class="lang-zh">CosyVoice3 (基线模型)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice-Free (Ours)</span><span class="lang-zh">WordVoice-Free (我们的)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/zh_2_prompt.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/zh_2_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/zh_2_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S3 - EN 1 -->
+    <h3><span class="lang-en">Sample 3 (English Long Utterance)</span><span class="lang-zh">示例 3 (英文长句)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">📝 Target Text:</span><span class="lang-zh">📝 目标文本:</span></strong> <i>"Peter Piper picked a peck of pickled peppers. A peck of pickled peppers Peter Piper picked. If Peter Piper picked a peck of pickled peppers, where’s the peck of pickled peppers Peter Piper picked?"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Prompt Audio</span><span class="lang-zh">提示音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Baseline)</span><span class="lang-zh">CosyVoice3 (基线模型)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice-Free (Ours)</span><span class="lang-zh">WordVoice-Free (我们的)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_1_prompt.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_1_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_1_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S3 - EN 2 -->
+    <h3><span class="lang-en">Sample 4 (English Long Utterance)</span><span class="lang-zh">示例 4 (英文长句)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">📝 Target Text:</span><span class="lang-zh">📝 目标文本:</span></strong> <i>"Whether the weather be fine or whether the weather be not. Whether the weather be cold or whether the weather be hot. We'll weather the weather whether we like it or not."</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">Prompt Audio</span><span class="lang-zh">提示音频</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">CosyVoice3 (Baseline)</span><span class="lang-zh">CosyVoice3 (基线模型)</span></th>
+        <th style="text-align: center; width: 33.3%;"><span class="lang-en">WordVoice-Free (Ours)</span><span class="lang-zh">WordVoice-Free (我们的)</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_2_prompt.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_2_cosyvoice3.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 33.3%;"><audio src="demo/sec3/en_2_wordvoice.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br><br>
+
+    <hr>
+
+    <!-- ==================== SECTION 4 ==================== -->
+    <a name="sec4">
+      <h2 class="lang-en">4. Single-Word Control Scenario</h2>
+      <h2 class="lang-zh">4. 单字控制场景</h2>
+    </a>
+    <div style="background-color: #fff8e1; border-left: 5px solid #ffb300; padding: 15px; margin: 15px 0; border-radius: 4px;">
+      <span class="lang-en" style="line-height: 1.5; display: inline-block;">
+        This section demonstrates WordVoice's precise manipulation of specific acoustic attributes for a <strong>single word</strong>. Benefiting from the LLM's context-awareness, altering a target word not only executes the precise control but also prompts the model to autonomously adapt the subsequent prosody, ensuring a natural and coherent stylistic flow.
+      </span>
+      <span class="lang-zh" style="line-height: 1.5; display: inline-block;">
+         本节展示了 WordVoice 对<strong>单个字/词</strong>特定声学属性的精准操纵能力。得益于大语言模型的上下文感知能力，当我们改变目标字的属性（如重读或拉长）时，模型不仅能精准执行控制指令，还会自发地调整后文的韵律走向，使其与当前字的风格保持自然连贯。
+      </span>
+    </div>
+
+    <!-- S4 - ZH 1 -->
+    <h3><span class="lang-en">Sample 1 (Chinese)</span><span class="lang-zh">示例 1 (中文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"刚才那种情况大家都不知道该怎么办，结果你三两下就找到了解决办法，太厉害了!"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"刚才那种情况大家都不知道该怎么办，结果你三两下就找到了解决办法，<span class="highlight-word">太</span><span class="control-tag">[Dur: ↑↑][Eng: ↑↑]</span> 厉害了!"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center;"><audio src="demo/sec4/zh_1_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec4/zh_1_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S4 - ZH 2 -->
+    <h3><span class="lang-en">Sample 2 (Chinese)</span><span class="lang-zh">示例 2 (中文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"把班上好，把觉睡好，把日子过好，比什么都重要。"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"把班上好，把觉睡好，把日子过好，比 <span class="highlight-word">什</span><span class="control-tag">[Dur: ↑↑][Eng: ↑↑][Ton: flat->peak]</span> 么都重要。"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/zh_2_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/zh_2_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S4 - EN 1 -->
+    <h3><span class="lang-en">Sample 3 (English)</span><span class="lang-zh">示例 3 (英文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"I thought you said this would be easy."</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"I thought you said this would be <span class="highlight-word">easy</span><span class="control-tag">[Eng: ↑↑][Ton: peak->strong rise]</span>."</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/en_1_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/en_1_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S4 - EN 2 -->
+    <h3><span class="lang-en">Sample 4 (English)</span><span class="lang-zh">示例 4 (英文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"Well, that was a brilliant idea."</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"Well, that was a <span class="highlight-word">brilliant</span><span class="control-tag">[Eng: ↑↑][Pit: ↑↑][Ton: strong fall->peak]</span> idea."</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/en_2_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec4/en_2_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br><br>
+
+    <hr>
+
+    <!-- ==================== SECTION 5 ==================== -->
+    <a name="sec5">
+      <h2 class="lang-en">5. Complex Dramatic Control (Multi-Word Scenario)</h2>
+      <h2 class="lang-zh">5. 复杂的戏剧性控制 (多字控制场景)</h2>
+    </a>
+    <div style="background-color: #e8eaf6; border-left: 5px solid #3f51b5; padding: 15px; margin: 15px 0; border-radius: 4px;">
+      <span class="lang-en" style="line-height: 1.5; display: inline-block;">
+        By combining multiple attribute interventions across <strong>several words</strong>, WordVoice can act as an acoustic director, generating highly expressive and dramatic speech suitable for audiobook dubbing and character acting.
+      </span>
+      <span class="lang-zh" style="line-height: 1.5; display: inline-block;">
+        通过在<strong>多个词</strong>上组合多种属性干预，WordVoice 可以像声音导演一样，生成极具表现力和戏剧冲突的语音，非常适合有声书配音和角色演绎。
+      </span>
+    </div>
+
+    <!-- S5 - ZH 1 -->
+    <h3><span class="lang-en">Sample 1 (Chinese)</span><span class="lang-zh">示例 1 (中文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"我绝对不会同意的，你疯了吗？"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"我 <span class="highlight-word">绝</span><span class="control-tag">[Eng: ↑↑][Pit: ↑↑]</span> <span class="highlight-word">对</span><span class="control-tag">[Dur: ↑↑][Eng: ↑↑][Pit: ↑↑][Bnd: b0->b1]</span> 不会同意的，你 <span class="highlight-word">疯</span><span class="control-tag">[Pit: ↓↓][Eng: ↑↑][Bnd: b0->b1]</span> 了吗？"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center;"><audio src="demo/sec5/zh_1_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center;"><audio src="demo/sec5/zh_1_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S5 - ZH 2 -->
+    <h3><span class="lang-en">Sample 2 (Chinese)</span><span class="lang-zh">示例 2 (中文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"等一下，前面好像有声音，快躲起来！"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"等一 <span class="highlight-word">下</span><span class="control-tag">[Dur: ↓↓][Ton: flat->rise]</span>，前面好像有声 <span class="highlight-word">音</span><span class="control-tag">[Dur: ↓↓][Eng: ↓↓]</span>，<span class="highlight-word">快</span><span class="control-tag">[Eng: ↑↑]</span> 躲起 <span class="highlight-word">来</span><span class="control-tag">[Ton: flat->strong rise]</span>！"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/zh_2_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/zh_2_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S5 - EN 1 -->
+    <h3><span class="lang-en">Sample 3 (English)</span><span class="lang-zh">示例 3 (英文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"I will never agree to this, are you crazy?"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"I will <span class="highlight-word">never</span><span class="control-tag">[Pit: ↑↑][Ton: peak->strong fall]</span> agree to this, <span class="highlight-word">are</span><span class="control-tag">[Pit: ↑↑]</span> you <span class="highlight-word">crazy</span><span class="control-tag">[Eng: ↑↑]</span> ?"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/en_1_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/en_1_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br>
+
+    <!-- S5 - EN 2 -->
+    <h3><span class="lang-en">Sample 4 (English)</span><span class="lang-zh">示例 4 (英文)</span></h3>
+    <div class="sample-card">
+      <p><strong><span class="lang-en">🗣️ Base (Free Mode):</span><span class="lang-zh">🗣️ 基础生成 (自由模式):</span></strong> <i>"Wait a minute, I hear something, hide!"</i></p>
+      <p><strong><span class="lang-en">🎬 Intervention:</span><span class="lang-zh">🎬 人工干预:</span></strong> <i>"<span class="highlight-word">Wait</span><span class="control-tag">[Dur: ↑↑][Bnd: b0->b2]</span> a minute, I hear <span class="highlight-word">something</span><span class="control-tag">[Bnd: b2->b4]</span>, <span class="highlight-word">hide</span><span class="control-tag">[Eng: ↑↑][Pit: ↑↑]</span>!"</i></p>
+    </div>
+    <table class="audio-table" style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Free</span><span class="lang-zh">WordVoice-Free</span></th>
+        <th style="text-align: center; width: 50%;"><span class="lang-en">WordVoice-Control</span><span class="lang-zh">WordVoice-Control</span></th>
+      </tr>
+      <tr>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/en_2_free.mp3" controls preload="none"></audio></td>
+        <td style="text-align: center; width: 50%;"><audio src="demo/sec5/en_2_control.mp3" controls preload="none"></audio></td>
+      </tr>
+    </table><br><br>
+
+    <footer class="site-footer">
+      <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com/">GitHub Pages</a>.</span>
+    </footer>
+  </section>
+
+  <!-- 语言切换脚本 -->
+  <script>
+    function toggleLanguage() {
+      const body = document.body;
+      const btn = document.getElementById('lang-btn');
+      
+      body.classList.toggle('zh-active');
+      
+      if (body.classList.contains('zh-active')) {
+        btn.innerText = '🌐 English';
+      } else {
+        btn.innerText = '🌐 中文';
+      }
+    }
+  </script>
+</body>
+</html>
