@@ -1,1 +1,1 @@
-This is a demo page for HPRO.
+This is a demo page for WordVoice.
